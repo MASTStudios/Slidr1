@@ -6,7 +6,7 @@ public class Tween {
 	
 	private long startTime,duration;
 	
-	public Tween(){
+	public Tween(long duration){
 		
 	}
 }
