@@ -1,0 +1,20 @@
+<resources>
+
+    <color name="A1">#D50000</color>
+    <color name="B1">#FF1744</color>
+    <color name="C1">#FF5252</color>
+    <color name="A2">#C51162</color>
+    <color name="B2">#F50057</color>
+    <color name="C2">#FF4081</color>
+    <color name="A3">#AA00FF</color>
+    <color name="B3">#D500F9</color>
+    <color name="C3">#E040FB</color>
+    <color name="A4">#6200EA</color>
+    <color name="B4">#651FFF</color>
+    <color name="C4">#7C4DFF</color>
+    <color name="A5">#304FFE</color>
+    <color name="B5">#3D5AFE</color>
+    <color name="C5">#536DFE</color>
+    <color name="background">#333333</color>
+
+</resources>
