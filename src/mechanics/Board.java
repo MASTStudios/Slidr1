@@ -27,15 +27,20 @@ public class Board extends SurfaceView implements OnTouchListener, SurfaceHolder
 	private List<Ball> balls;
 	private List<Node> nodes;
 	private List<Edge> edges;
-	
+
 	private String name;
-	
+
 	private Context context;
 	private double dx, dy, mx, my;
 	private double diffx, diffy, minx, miny;
 	private int height, width;
 
-	private boolean interaction; //true if the user can interact with the game
+	private boolean interaction; // true if the user can interact with the game
+
+	// animation parameters
+	private double animation_fraction;
+	private Node animation_n1, animation_n2;
+
 	private GestureDetectorCompat mDetector;
 
 	public Board(Context context, String levelName) {
@@ -143,37 +148,20 @@ public class Board extends SurfaceView implements OnTouchListener, SurfaceHolder
 		y1 = (float) ((E1.getY() - dy) / my);
 		x2 = (float) ((E2.getX() - dx) / mx);
 		y2 = (float) ((E2.getY() - dy) / my);
-		// changing according to offset and scale
-		// MotionEvent e1 = MotionEvent.obtain(E1.getDownTime(),
-		// E1.getEventTime(), E1.getAction(), (float) (E1.getX() / mx - dx),
-		// (float) (E1.getY() / my - dy), E1.getMetaState());
-		// MotionEvent e2 = MotionEvent.obtain(E2.getDownTime(),
-		// E2.getEventTime(), E2.getAction(), (float) (E2.getX() / mx - dx),
-		// (float) (E2.getY() / my - dy), E2.getMetaState());
 		double distanceX = x2 - x1;
 		double distanceY = y2 - y1;
 
-		// System.out.println("INTERRACTION DATA");
-		System.out.println(dx + " " + dy + " " + mx + " " + my);
-		// System.out.println("e1 " + e1.getX() + "|" + e1.getY());
-		// System.out.println("e2 " + e2.getX() + "|" + e2.getY());
-		double threshold = 100; // TODO set threshold from the dimensions
+		double threshold = 500; // TODO set threshold from the dimensions
 
 		double distance = Double.MAX_VALUE;
 		Node n1 = null, n2 = null;
-		// System.out.println("slelcting n1");
 		for (Node node : nodes) {
-			// System.out.println(node + " " + node.distance(e1.getX(),
-			// e1.getY()));
 			if (node.distance(x1, y1) < distance) {
 				n1 = node;
 				distance = node.distance(x1, y1);
 			}
 		}
 
-		// System.out.println("n1 " + n1.getx() + "|" + n1.gety() + " color = "
-		// + n1.getColor());
-		// find node2
 		// TODO handle infinite slope
 		double slope = distanceY / distanceX;
 		double angle = Math.atan(slope), minangle = 2 * Math.PI;
@@ -185,17 +173,12 @@ public class Board extends SurfaceView implements OnTouchListener, SurfaceHolder
 			angle = 2 * Math.PI + angle;
 		}
 
-		// System.out.println("swipe angle" + angle * 180 / Math.PI);
-
 		for (Node node : nodes) {
 			if (n1 != node && Math.abs(n1.angle((float) node.getx(), (float) node.gety()) - angle) < minangle) {
 				n2 = node;
 				minangle = Math.abs(n1.angle((float) node.getx(), (float) node.gety()) - angle);
 			}
 		}
-		// System.out.println("n2 " + n2.getx() + "|" + n2.gety() + " color = "
-		// + n2.getColor());
-		// find the distance and calculate the fraction of animation.
 		/*
 		 * The fraction of animation should be a function of the distance and
 		 * the threshold which is an asymptote to fraction = 1
@@ -217,17 +200,15 @@ public class Board extends SurfaceView implements OnTouchListener, SurfaceHolder
 	private void setBallPosition(Node n1, Node n2, double fraction) {
 		// TODO add support for entangled loops
 		// TODO add support for delayed motion in farther balls
+		// TODO change the parent of the ball if the fraction reaches 1
 		List<Ball> balls = new ArrayList<Ball>();
 		List<Node> nodes = new ArrayList<Node>();
 		Edge e;
 		Node n;
-		// System.out.println("Path from" + this.nodes.indexOf(n1) + " via " +
-		// this.nodes.indexOf(n2));
 		nodes.add(n1);
 		nodes.add(n2);
 		balls.add(n1.getBall());
 		balls.add(n2.getBall());
-		// System.out.println("edge exists " + n1.checkedge(n2));
 		if (n1.checkedge(n2)) {
 			e = n1.getEdge(n2);
 			while (true) {
@@ -245,15 +226,12 @@ public class Board extends SurfaceView implements OnTouchListener, SurfaceHolder
 
 			int i = 0;
 			for (Ball ball : balls) {
-				// System.out.println(i);
 				from = ball.getNode();
 				if (balls.indexOf(ball) < balls.size() - 1) {
 					to = nodes.get(balls.indexOf(ball) + 1);
 				} else {
 					to = nodes.get(0);
 				}
-				// System.out.println("getting edge from " + from + " to " +
-				// to);
 				e = from.getEdge(to);
 				ball.setPosition(e, from, fraction);
 				i++;
@@ -261,11 +239,10 @@ public class Board extends SurfaceView implements OnTouchListener, SurfaceHolder
 		}
 	}
 
-	public void setBallsToBase(){
-		
+	public void setBallsToBase() {
+
 	}
-	
-	
+
 	@Override
 	protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
 		super.onMeasure(widthMeasureSpec, heightMeasureSpec);
@@ -307,11 +284,11 @@ public class Board extends SurfaceView implements OnTouchListener, SurfaceHolder
 	public void setInteraction(boolean interaction) {
 		this.interaction = interaction;
 	}
-	
+
 	public boolean isInteractive() {
 		return interaction;
 	}
-	
+
 }
 
 class updater extends Thread {
@@ -336,17 +313,21 @@ class updater extends Thread {
 	}
 }
 
-class SetBallsToBase extends Thread{
+class SetBallsToBase extends Thread {
 
 	private Board callback;
 
 	public SetBallsToBase(Board callback) {
 		this.callback = callback;
 	}
-	
-	public void run(){
+
+	public void run() {
 		callback.setInteraction(false);
-		Tween=new Tween(1000, Tween.EASE_SWIFT);
+		Tween tween = new Tween(1000, Tween.EASE_SWIFT);
+		while (tween.getFraction() < 1) {
+
+		}
+		callback.setInteraction(true);
 	}
 
 }
