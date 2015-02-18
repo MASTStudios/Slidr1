@@ -24,6 +24,15 @@ public class Ball {
 		paint.setFlags(Paint.ANTI_ALIAS_FLAG);
 		home.setBall(this);
 	}
+	
+	
+	/*
+	 * Sets the ball property of the node and the node property of the ball
+	 */
+	public void setHome(Node home){
+		this.home=home;
+		home.setBall(this);
+	}
 
 	public void draw(Canvas canvas, double dx, double dy, double mx, double my) {
 		canvas.drawCircle((float) (dx + x * mx), (float) (dy + y * my), 15, paint);

@@ -42,6 +42,7 @@ public class Board extends SurfaceView implements OnTouchListener, SurfaceHolder
 	private Node animation_n1, animation_n2;
 
 	private GestureDetectorCompat mDetector;
+	private GestureListener gestureListener;
 
 	public Board(Context context, String levelName) {
 		super(context);
@@ -50,7 +51,9 @@ public class Board extends SurfaceView implements OnTouchListener, SurfaceHolder
 		nodes = new ArrayList<Node>();
 		edges = new ArrayList<Edge>();
 		this.context = context;
-		mDetector = new GestureDetectorCompat(context, new GestureListener(this));
+		interaction=true;
+		gestureListener = new GestureListener(this);
+		mDetector = new GestureDetectorCompat(context, gestureListener);
 		this.setOnTouchListener(this);
 
 		double maxx = Double.MIN_VALUE, maxy = Double.MIN_VALUE, minx = Double.MAX_VALUE, miny = Double.MAX_VALUE;
@@ -98,7 +101,6 @@ public class Board extends SurfaceView implements OnTouchListener, SurfaceHolder
 			this.miny = miny;
 
 		} catch (IOException e) {
-			// System.out.println("Did not find the leve in the assets");
 			e.printStackTrace();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -193,14 +195,59 @@ public class Board extends SurfaceView implements OnTouchListener, SurfaceHolder
 	}
 
 	/*
+	 * This function changes the parent of the ball on the n1-n2 move. nothing
+	 * happens if that is not a valid move.
+	 */
+	public void setBallParent(Node n1, Node n2) {
+		List<Ball> balls = new ArrayList<Ball>();
+		List<Node> nodes = new ArrayList<Node>();
+		Edge e;
+		Node n;
+		nodes.add(n1);
+		nodes.add(n2);
+		balls.add(n1.getBall());
+		balls.add(n2.getBall());
+		if (n1.checkedge(n2)) {
+			e = n1.getEdge(n2);
+			while (true) {
+				n = nodes.get(nodes.size() - 2).getNode(nodes.get(nodes.size() - 1));
+				if (n == n1) {
+					break;
+				}
+				nodes.add(n);
+				balls.add(n.getBall());
+			}
+		}
+
+		Ball temp;
+		for (int i = 0; i < balls.size(); i++) {
+			if (i + 1 == balls.size()) {
+				balls.get(i).setHome(nodes.get(0));
+			} else {
+				balls.get(i).setHome(nodes.get(i+1));
+			}
+
+		}
+
+	}
+
+	/*
 	 * Sets the positions of the loop in a transition phase so that the ball
 	 * from n1 is going to n2. The fraction specifies the amount of transition
 	 * completed.
+	 * 
+	 * This function sets the values of animation_fraction, animation_n1 and
+	 * animation_n2
 	 */
-	private void setBallPosition(Node n1, Node n2, double fraction) {
+	public void setBallPosition(Node n1, Node n2, double fraction) {
 		// TODO add support for entangled loops
 		// TODO add support for delayed motion in farther balls
 		// TODO change the parent of the ball if the fraction reaches 1
+
+		animation_fraction = fraction;
+		animation_n1 = n1;
+		animation_n2 = n2;
+
 		List<Ball> balls = new ArrayList<Ball>();
 		List<Node> nodes = new ArrayList<Node>();
 		Edge e;
@@ -240,7 +287,8 @@ public class Board extends SurfaceView implements OnTouchListener, SurfaceHolder
 	}
 
 	public void setBallsToBase() {
-
+		SetBallsToBase thread = new SetBallsToBase(this);
+		thread.start();
 	}
 
 	@Override
@@ -277,7 +325,12 @@ public class Board extends SurfaceView implements OnTouchListener, SurfaceHolder
 
 	@Override
 	public boolean onTouch(View v, MotionEvent event) {
-		this.mDetector.onTouchEvent(event);
+		if (gestureListener.isScrolling() && event.getAction() == 1) {
+			gestureListener.setScrolling(false);
+			setBallsToBase();
+		} else {
+			this.mDetector.onTouchEvent(event);
+		}
 		return true;
 	}
 
@@ -289,6 +342,17 @@ public class Board extends SurfaceView implements OnTouchListener, SurfaceHolder
 		return interaction;
 	}
 
+	public double getAnimation_fraction() {
+		return animation_fraction;
+	}
+
+	public Node getAnimation_n1() {
+		return animation_n1;
+	}
+
+	public Node getAnimation_n2() {
+		return animation_n2;
+	}
 }
 
 class updater extends Thread {
@@ -323,10 +387,23 @@ class SetBallsToBase extends Thread {
 
 	public void run() {
 		callback.setInteraction(false);
-		Tween tween = new Tween(1000, Tween.EASE_SWIFT);
-		while (tween.getFraction() < 1) {
 
-		}
+		Node n1, n2;
+		double fraction;
+		n1 = callback.getAnimation_n1();
+		n2 = callback.getAnimation_n2();
+		fraction = callback.getAnimation_fraction();
+
+		Tween tween = new Tween(1000, Tween.EASE_SWIFT, fraction);
+		do {
+			callback.setBallPosition(n1, n2, tween.getFraction());
+			try{
+				Thread.sleep(25);
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+		}while (tween.alive());
+		callback.setBallParent(n1, n2);
 		callback.setInteraction(true);
 	}
 
@@ -335,6 +412,7 @@ class SetBallsToBase extends Thread {
 class GestureListener extends GestureDetector.SimpleOnGestureListener {
 
 	private Board callback;
+	private boolean scrolling;
 
 	// for scroll customization
 	private boolean newScroll;
@@ -351,7 +429,18 @@ class GestureListener extends GestureDetector.SimpleOnGestureListener {
 
 	@Override
 	public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-		callback.onScroll(e1, e2);
+		scrolling = true;
+		if (callback.isInteractive()) {
+			callback.onScroll(e1, e2);
+		}
 		return true;
+	}
+
+	public boolean isScrolling() {
+		return scrolling;
+	}
+
+	public void setScrolling(boolean scrolling) {
+		this.scrolling = scrolling;
 	}
 }
